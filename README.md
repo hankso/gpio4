@@ -1,7 +1,7 @@
 # gpio4
 Python module to control gpio on Linux.
 
-IMporoved gpio module based on sysfs and RPi.GPIO and gpio3 features
+Improved gpio module based on sysfs and RPi.GPIO and gpio3 features
 
 Support `RaspberryPi/OrangePi/BananaPi...`
 
