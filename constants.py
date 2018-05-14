@@ -27,3 +27,5 @@ BOARD_SUNXI = _sunxi()
 BOARD_NANO_PI = {}
 
 BOARD_ORANGE_PI_PC = {}
+
+BOARD_BCM = {}
