@@ -1,29 +1,7 @@
 # coding: utf-8
 '''
-Python module gpio4
-IMporoved gpio module based on sysfs combining with OPi.GPIO and gpio3 features
 @author Hank
 @page https://github.com/hankso
-
-Want something like RPi.GPIO?
-    >>> import gpio4.GPIO as GPIO
-    >>> GPIO.setmode(GPIO.BOARD_orangepi_zero_plus)
-    >>> GPIO.setup(12, GPIO.OUTPUT)
-
-or call functions as you are using Arduino?
-    >>> from gpio4.Arduino import *
-    >>> pinMode(13, OUTPUT)
-    >>> digitalWrite(13, HIGH)
-    >>> if digitalRead(13):
-    ...     digitalWrite(12, LOW)
-
-or most basic and fastest sysfs class?
-    >>> import gpio4
-    >>> pin = gpio4.SysfsGPIO(gpio4.BOARD_nanopi[6])
-    >>> pin.export = True # regist pin by sysfs, same as pinMode()
-    >>> pin.direction = 'out'
-    >>> print(pin.value)
-    >>> pin.value = 1
 '''
 import os
 
