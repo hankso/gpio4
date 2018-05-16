@@ -4,7 +4,8 @@
 @page https://github.com/hankso
 '''
 import os
-from gpio4 import constants
+import threading
+from gpio4.constants import *
 
 
 class SysfsGPIO(object):
@@ -83,25 +84,21 @@ class SysfsGPIO(object):
 
 class _GPIO(object):
     def __init__(self):
-        self._pin_dict = {}
-        self.IN = 'in'
-        self.OUT = 'out'
-        self.PULLUP = 'pullup'
-        self.PULLDN = 'pulldn'
-        self.HIGH = 1
-        self.LOW = 0
-        self.BOARD = constants.BOARD_SUNXI
-        self.BCM = constants.BOARD_BCM
-        self._mode = self.BOARD
+        self.IN      = INPUT
+        self.OUT     = OUTPUT
+        self.PULLUP  = INPUT_PULLUP
+        self.PULLDN  = INPUT_PULLDN
+        self.RISING  = RISING
+        self.FALLING = FALLING
+        self.HIGH    = HIGH
+        self.LOW     = LOW
+        self.BOARD   = BOARD_SUNXI
+        self.BCM     = BCM
         self.VERSION = 1.0
 
-    @property
-    def mode(self):
-        return self._mode
-
-    @mode.setter
-    def mode(self, m):
-        self._mode = m
+        self._pin_dict = {}
+        self._pwm_dict = {}
+        self._mode = self.BOARD
 
     def setmode(self, m):
         self._mode = mode
@@ -109,31 +106,48 @@ class _GPIO(object):
     def getmode(self):
         return self._mode
 
-    def setup(self, pin, state, initial=[None]):
-        # convert all args to list
-        for arg in [pin, state, initial]:
-            if not isinstance(arg, [list, tuple]):
-                arg = [arg]
+    def _get_pin_num(self, pin, must_in_dict=False):
+        try:
+            p = self._mode[pin]
+        except:
+            raise KeyError(('Invalid pin({}) or unsupported mode!\n'
+                            'Reset mode and check pin num.').format(pin))
+        if must_in_dict and ( p not in self._pin_dict ):
+            raise NameError(('Pin {} is not setup yet, please run'
+                             '`GPIO.setup({}, state)` first!'
+                             '').format(pin, pin))
+        return p
+
+    def _listify(self, *args, padlen=None):
+        # convert all args to list and pad them to a certain length
+        for arg in args:
+            if not isinstance(arg, list):
+                if isinstance(arg, tuple):
+                    arg = list(arg)
+                else:
+                    arg = [arg]
+            if padlen:
+                if len(arg) < padlen:
+                    arg += [arg[-1]] * ( padlen-len(arg) )
+                elif len(arg) > padlen:
+                    arg = arg[:padlen]
+        return args
+
+    def setup(self, pin, state, initial=None):
+        # listify pin for multichannel operation
+        pins = [self._get_pin_num(p) for p in self._listify(pin)]
         # pad state_list and initial_list in case someone
         # want to setup more than one pin at one time
-        for arg in [state, initial]:
-            if len(arg) < len(pin):
-                arg = list(arg) + [arg[-1]] * ( len(pin)-len(arg) )
-            elif len(arg) > len(pin):
-                arg = arg[:len(pin)]
+        states, initials = self._listify(state, initial, padlen = len(pin))
+
         # register all pins and init them
-        for p, s, i in zip(pin, state, initial):
-            try:
-                p = self._mode[p]
-            except:
-                raise NameError(('Invalid pin({}) or unsupported mode!\n'
-                                 'Reset mode and check pin num.').format(p))
+        for p, s, i in zip(pins, states, initials):
             if s == self.PULLUP:
                 s, i = self.IN, self.HIGH
             elif s == self.PULLDN:
                 s, i = self.IN, self.LOW
             elif s not in [self.IN, self.OUT]:
-                raise RuntimeError('Invalid state: {}!'.format(s))
+                raise ValueError('Invalid state: {}!'.format(s))
             if p not in self._pin_dict:
                 self._pin_dict[p] = SysfsGPIO(p)
                 self._pin_dict[p].export = True
@@ -142,47 +156,94 @@ class _GPIO(object):
                 self._pin_dict[p].value = i
 
     def input(self, pin):
-        p = self._mode[pin]
-        if p not in self._pin_dict:
-            raise RuntimeError(('Pin {} is not setup yet, please run'
-                                '`GPIO.setup({}, state)` first!').format(pin))
-        return self._pin_dict[p].value
+        # single channel value
+        if type(pin) not in [list, tuple]:
+            return self._pin_dict[self._get_pin_num(pin, must_in_dict=True)].value
+        # multichannel values
+        pins = [self._get_pin_num(pin, must_in_dict=True) \
+                for p in self._listify(pin)]
+        return [self._pin_dict[p].value for p in pins]
 
     def output(self, pin, value):
-        for arg in [pin, value]:
-            if not isinstance(arg, [list, tuple]):
-                arg = [arg]
-        if len(value) < len(pin):
-            value = list(value) + [value[-1]] * ( len(pin)-len(value) )
-        elif len(value) > len(pin):
-            value = value[:len(pin)]
-        for p, v in zip(pin, value):
-            try:
-                p = self._mode[p]
-            except:
-                raise NameError(('Invalid pin({}) or unsupported mode!\n'
-                                 'Reset mode and check pin num.').format(p))
-            if p not in self._pin_dict:
-                raise RuntimeError(('Pin {} is not setup yet, please run'
-                                    '`GPIO.setup({}, state)` first!'
-                                    '').format(pin))
-            if v not in [True, False, self.HIGH, self.LOW, 1, 0]:
-                raise RuntimeError('Invalid value: {}'.format(v))
+        pins = [self._get_pin_num(p, must_in_dict=True) \
+                for p in self._listify(pin)]
+        values = self._listify(value, padlen=len(pins))
+        for p, v in zip(pins, values):
+            if v not in [True, False, self.HIGH, self.LOW]:
+                raise ValueError('Invalid value: {}'.format(v))
             self._pin_dict[p].value = int(v)
 
     def cleanup(self, pin=None):
         if pin == None:
-            pin = list(self._pin_dict.keys()) # py2&py3 compatiable
+            pins = list(self._pin_dict.keys()) # py2&py3 compatiable
         else:
-            if not isinstance(pin, [list, tuple]):
-                pin = [pin]
-            try:
-                pin = [self._mode[p] for p in pin]
-            except:
-                raise NameError(('Invalid pin({}) or unsupported mode!\n'
-                                 'Reset mode and check pin num.').format(p))
+            pins = [self._get_pin_num(p) for p in self._listify(pin)]
         for p in pin:
-            self._pin_dict.pop(p, None)
+            sysfsgpio = self._pin_dict.pop(p, None)
+            if sysfsgpio:
+                sysfsgpio.export = False
+            pwm = self._pwm_dict.pop(p, None)
+            if pwm:
+                pwm.stop()
 
 
-GPIO = _GPIO()
+    def add_event_detect(self, pin, event, bouncetime=None):
+        pass
+
+    def add_event_callback(self, pin, ):
+        pass
+
+    def event_detected(self, pin):
+        pass
+
+    def wait_for_edge(self, pin, edge):
+        pass
+
+    def PWM(self, pin, frequency):
+        self.setup(pin, self.OUT)
+        pins = [self._get_pin_num(p) for p in self._listify(pin)]
+        frequencys = self._listify(frequency)
+        return_list = []
+        for p, f in zip(pins, frequencys):
+            self._pwm_dict[p] = PWM(self._pin_dict[p], f)
+            return_list.append(self._pwm_dict[p])
+        if len(pins) == 1:
+            return return_list[0]
+        else:
+            return return_list
+
+
+class PWM:
+    def __init__(self, sysfsgpio, frequency):
+        self.sysfsgpio = sysfsgpio
+        self.ChangeFrequency(frequency)
+        self._flag_stop = threading.Event()
+        self.t = threading.Thread(target=self._pwm)
+        self.t.setDeamon(True)
+
+    def _pwm(self):
+        while not self._flag_stop.isSet():
+            self.sysfsgpio.value = 1
+            time.sleep(self.high_time)
+            self.sysfsgpio.value = 0
+            time.sleep(self.low_time)
+
+    def start(self, dc):
+        self.ChangeDutyCycle(dc)
+        self.t.start()
+
+    def stop(self):
+        self._flag_stop.set()
+
+    def ChangeFrequency(self, frequency):
+        self.frequency = frequency
+        self.period = 1.0/frequency
+        if hasattr(self, 'dc'):
+            self.high_time = self.dc * self.period
+            self.low_time = (1 - self.dc) * self.period
+
+    def ChangeDutyCycle(self, dc):
+        if dc > 1 or dc < 0:
+            raise ValueError('Invalid duty cycle: {}'.format(dc))
+        self.dc = dc
+        self.high_time, self.low_time = dc * self.period, (1 - dc) * self.period

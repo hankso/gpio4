@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 Created on Tue Apr 3 16:36:26 2018
@@ -7,12 +7,9 @@ Created on Tue Apr 3 16:36:26 2018
 @page:   https://github.com/hankso
 """
 
-from .gpio import SysfsGPIO
+from .src import _GPIO
+GPIO = _GPIO()
 
-from .constants import *
+from .src import SysfsGPIO
 
-__all__ = [SysfsGPIO,
-           NONE, RISING, FALLING, BOTH,
-           HIGH, LOW,
-           INPUT, OUTPUT,
-           BOARD_SUNXI]
+__all__ = [arduino, constants, GPIO, SysfsGPIO]
