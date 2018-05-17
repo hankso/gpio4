@@ -14,6 +14,8 @@ class SysfsGPIO(object):
         self.pin = pin
         self.path = '/sys/class/gpio/gpio{:d}'.format(pin)
         self._file = {}
+        self._write_lock = threading.Lock()
+        self._read_lock = threading.Lock()
 
     @property
     def export(self):
@@ -53,7 +55,7 @@ class SysfsGPIO(object):
             if self.export:
                 with open('/sys/class/gpio/unexport', 'w') as f:
                     f.write(str(self.pin))
-            for h in self._file.values():
+            for h in list(self._file.values()):
                 h.close()
             self._file.clear()
 
@@ -74,12 +76,17 @@ class SysfsGPIO(object):
         self._write('edge', data)
 
     def _read(self, attr):
+        self._read_lock.acquire()
         self._file[attr].seek(0)
-        return self._file[attr].read().strip()
+        value = self._file[attr].read().strip()
+        self._read_lock.release()
+        return value
 
     def _write(self, attr, data):
+        self._write_lock.acquire()
         self._file[attr].seek(0)
         self._file[attr].write(str(data))
+        self._write_lock.release()
 
 
 class _GPIO(object):
@@ -88,23 +95,24 @@ class _GPIO(object):
         self.OUT     = OUTPUT
         self.PULLUP  = INPUT_PULLUP
         self.PULLDN  = INPUT_PULLDN
-        self.RISING  = RISING
-        self.FALLING = FALLING
         self.HIGH    = HIGH
         self.LOW     = LOW
+        self.RISING  = RISING
+        self.FALLING = FALLING
+        self.BOTH    = CHANGE
         self.BOARD   = BOARD_SUNXI
         self.BCM     = BCM
         self.VERSION = 1.0
 
         self._pin_dict = {}
         self._pwm_dict = {}
+        self._irq_dict = {}
         self._mode = self.BOARD
+        self._flag_interrupts = threading.Event()
+        self.enable_interrupts()
 
-    def setmode(self, m):
-        self._mode = mode
-
-    def getmode(self):
-        return self._mode
+    def _time_ms(self):
+        return time.time() * 1000
 
     def _get_pin_num(self, pin, must_in_dict=False):
         try:
@@ -178,34 +186,161 @@ class _GPIO(object):
             pins = list(self._pin_dict.keys()) # py2&py3 compatiable
         else:
             pins = [self._get_pin_num(p) for p in self._listify(pin)]
-        for p in pin:
-            sysfsgpio = self._pin_dict.pop(p, None)
-            if sysfsgpio:
-                sysfsgpio.export = False
+        for p in pins:
+            pin = self._pin_dict.pop(p, None)
+            if pin:
+                pin.export = False
             pwm = self._pwm_dict.pop(p, None)
             if pwm:
-                pwm.stop()
+                pwm.clear()
+            irq = self._irq_dict.pop(p, None)
+            if irq:
+                irq['flag_stop'].set()
+                irq['flag_triggered'].clear()
+            del pin, pwm, irq
 
+    def enable_interrupts(self):
+        self._flag_interrupts.set()
 
-    def add_event_detect(self, pin, event, bouncetime=None):
-        pass
+    def disable_interrupts(self):
+        self._flag_interrupts.clear()
 
-    def add_event_callback(self, pin, ):
-        pass
+    def _soft_interrupt(self, sysgpio, flag_stop, flag_triggered):
+        # in case user set pin to some mode like PULLUP, we must check
+        # whether this pin is initialized as IN first
+        # default PULLUP/PULLDN are not used
+        if sysfsgpio.direction != self.IN:
+            sysfsgpio.direction = self.IN
+        while not flag_stop.isSet():
+            l1, l2 = self._irq_dict[p]['l1'], self._irq_dict['l2']
+            bouncetime = self._irq_dict[p]['bouncetime'] / 1000.0
+            while sysfsgpio.value != l1:
+                self._flag_interrupts.wait()
+            while sysfsgpio.value != l2:
+                self._flag_interrupts.wait()
+            time.sleep(bouncetime)
+            if sysfsgpio.value == l2:
+                flag_triggered.set()
+                for c in self._irq_dict[p]['callbacks']:
+                    c(pin)
 
-    def event_detected(self, pin):
-        pass
+    def add_event_detect(self, pin, edge, callback=None, bouncetime=None):
+        p = self._get_pin_num(pin, must_in_dict=True)
+        if p in self._irq_dict:
+            raise NameError(('Pin {} is already been attached to a soft '
+                             'interrupt on {} edge, if you want to reset it, '
+                             'please run `GPIO.remove_event_detect({})`'
+                             '').format(pin, self._irq_dict[p]['edge'], pin))
+        if edge == self.RISING:
+            l1, l2 = self.LOW, self.HIGH
+        elif edge == self.FALLING:
+            l1, l2 = self.HIGH, self.LOW
+        elif edge == self.BOTH:
+            l1 = sysfsgpio.value
+            l2 = self.HIGH - l1
+        else:
+            raise ValueError('Invalid edge: {}'.format(edge))
 
-    def wait_for_edge(self, pin, edge):
-        pass
+        # initialize soft interrupt on this pin
+        flag_stop, flag_triggered = threading.Event(), threading.Event()
+        t = threading.Thread(target=self._soft_interrupt,
+                             args=(self._pin_dict[p],
+                                   flag_stop,
+                                   flag_triggered))
+        t.setDeamon(True)
+        t.start()
+        self._irq_dict[p] = {
+            'bouncetime': bouncetime if bouncetime != None else 0,
+            'callbacks': self._listify(callback) if callback != None else [],
+            'edge': edge, 'l1': l1, 'l2': l2,
+            'flag_stop': flag_stop, 'flag_triggered': flag_triggered
+        }
 
-    def PWM(self, pin, frequency):
-        self.setup(pin, self.OUT)
+    def remove_event_detect(self, pin):
+        p = self._get_pin_num(pin, must_in_dict=True)
+        if p not in self._irq_dict:
+            raise NameError(('Pin {} is not used as interrupt source yet, '
+                             'please run `GPIO.add_event_detect({}, edge)` to '
+                             'attached a interrupt first').format(pin, pin))
+        irq = self._irq_dict.pop(p)
+        irq['flag_stop'].set()
+        irq['flag_triggered'].clear()
+        del irq
+
+    def add_event_callback(self, pin, callback):
+        p = self._get_pin_num(pin, must_in_dict=True)
+        if p not in self._irq_dict:
+            raise NameError(('Pin {} is not initialized with edge yet, please '
+                             'run `GPIO.add_event_detect({}, edge)` first'
+                             '').format(pin, pin))
+        self._irq_dict[p]['callbacks'] += self._listify(callback)
+
+    def event_detected(self, pin, timeout=FOREVER_ms):
+        p = self._get_pin_num(pin, must_in_dict=True)
+        if p not in self._irq_dict:
+            raise NameError(('Pin {} is not initialized with edge yet, please '
+                             'run `GPIO.add_event_detect({}, edge)` first'
+                             '').format(pin, pin))
+        start = self._time_ms()
+        while not self._irq_dict[p]['flag_triggered'].isSet():
+            if (self._time_ms() - start) > timeout:
+                return False
+            time.sleep(1.0/10) # sensibility: refresh 10 times per second
+        self._irq_dict[p]['flag_triggered'].clear()
+        return True
+
+    def wait_for_edge(self, pin, edge, timeout=FOREVER_ms):
+        start = self._time_ms()
+        p = self._get_pin_num(pin, must_in_dict=True)
+        if edge == self.RISING:
+            l1, l2 = self.LOW, self.HIGH
+        elif edge == self.FALLING:
+            l1, l2 = self.HIGH, self.LOW
+        elif edge == self.BOTH:
+            l1 = self._pin_dict[p].value
+            l2 = self.HIGH - l1
+        else:
+            raise ValueError('Invalid edge: {}'.format(edge))
+        while self._pin_dict[p].value != l1:
+            if (self._time_ms() - start) > timeout:
+                return
+        while self._pin_dict[p].value != l2:
+            if (self._time_ms() - start) > timeout:
+                return
+        return pin
+
+    def setmode(self, m):
+        self._mode = mode
+
+    def getmode(self):
+        return self._mode
+
+    def PWM(self, pin, frequency=None):
+        '''
+        if pin is already initialized before:
+            if frequency provided:
+                update frequency and return PWM instance
+            else:
+                return PWM instance with no operation
+        else:
+            if frequency provided:
+                initialize with this frequency and return PWM instance
+            else:
+                initialize with 1Hz(default) and return PWM instance
+        '''
         pins = [self._get_pin_num(p) for p in self._listify(pin)]
-        frequencys = self._listify(frequency)
+        frequencys = self._listify(frequency, padlen = len(pins))
         return_list = []
         for p, f in zip(pins, frequencys):
-            self._pwm_dict[p] = PWM(self._pin_dict[p], f)
+            if p not in self._pwm_dict:
+                self.setup(p, self.OUT)
+                if f is None:
+                    raise NameError(('PWM on pin {} is not initialized yet, '
+                                     'please provide pin num and freq'
+                                     '').format(p))
+                self._pwm_dict[p] = _PWM(self._pin_dict[p], f)
+            elif f:
+                self._pwm_dict[p].ChangeFrequency(f)
             return_list.append(self._pwm_dict[p])
         if len(pins) == 1:
             return return_list[0]
@@ -213,37 +348,47 @@ class _GPIO(object):
             return return_list
 
 
-class PWM:
+class _PWM:
     def __init__(self, sysfsgpio, frequency):
-        self.sysfsgpio = sysfsgpio
+        self._sysfsgpio = sysfsgpio
         self.ChangeFrequency(frequency)
+        self._flag_pause = threading.Event()
         self._flag_stop = threading.Event()
-        self.t = threading.Thread(target=self._pwm)
-        self.t.setDeamon(True)
+        self._t = threading.Thread(target=self._pwm)
+        self._t.setDeamon(True)
+        self._t.start()
 
     def _pwm(self):
         while not self._flag_stop.isSet():
-            self.sysfsgpio.value = 1
-            time.sleep(self.high_time)
-            self.sysfsgpio.value = 0
-            time.sleep(self.low_time)
+            self._flag_pause.wait()
+            self._sysfsgpio.value = 1
+            time.sleep(self._high_time)
+            self._sysfsgpio.value = 0
+            time.sleep(self._low_time)
 
     def start(self, dc):
         self.ChangeDutyCycle(dc)
-        self.t.start()
+        self._flag_pause.set()
 
     def stop(self):
-        self._flag_stop.set()
+        self._flag_pause.clear()
 
     def ChangeFrequency(self, frequency):
-        self.frequency = frequency
-        self.period = 1.0/frequency
+        if frequency <= 0:
+            raise ValueError('Invalid frequency: {}'.format(frequency))
+        self._frequency = frequency
+        self._period = 1.0/frequency
         if hasattr(self, 'dc'):
-            self.high_time = self.dc * self.period
-            self.low_time = (1 - self.dc) * self.period
+            self._high_time = self._dc * self._period
+            self._low_time = (1 - self._dc) * self._period
 
     def ChangeDutyCycle(self, dc):
-        if dc > 1 or dc < 0:
+        if dc > 100 or dc < 0:
             raise ValueError('Invalid duty cycle: {}'.format(dc))
-        self.dc = dc
-        self.high_time, self.low_time = dc * self.period, (1 - dc) * self.period
+        self._dc = float(dc) / 100
+        self._high_time = dc * self._period
+        self._low_time = (1 - dc) * self._period
+
+    def clear(self):
+        self.stop()
+        self._flag_stop.set()

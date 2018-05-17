@@ -7,6 +7,7 @@ Created on Tue May 15 01:17:55 2018
 @page:   https://github.com/hankso
 """
 from gpio4 import GPIO
+import threading
 
 '''
 Digital I/O
@@ -32,10 +33,13 @@ def digitalRead(pin):
 Advanced I/O
 '''
 def tone(pin, frequency, duration=None):
-    pass
+    p = GPIO.PWM(pin, frequency)
+    p.start(50)
+    if duration is not None and duration > 0:
+        threading.Timer(duration, lambda *args, **kwargs: p.stop()).start()
 
 def noTone(pin):
-    pass
+    GPIO.PWM(pin).stop()
 
 def pulseIn(pin, value, timeout=FOREVER_ms):
     # wait for any previous pulse end
@@ -138,14 +142,14 @@ def lowByte(x):
 '''
 External Interrupts
 '''
-def attachInterrupt():
-    pass
+def attachInterrupt(pin, ISR, mode):
+    GPIO.add_event_detect(pin, edge=mode, callback=[ISR])
 
-def detachInterrupt():
-    pass
+def detachInterrupt(pin):
+    GPIO.remove_event_detect(pin)
 
 def interrupts():
-    pass
+    GPIO.enable_interrupts()
 
 def noInterrupts():
-    pass
+    GPIO.disable_interrupts()

@@ -17,10 +17,9 @@ class _sunxi():
         return 32*(ord(rst[0][0])-65) + int(rst[0][1])
 
 
-NONE         = 'none'
 RISING       = 'rising'
 FALLING      = 'falling'
-BOTH         = 'both'
+CHANGE       = 'change'
 HIGH         = 1
 LOW          = 0
 INPUT        = 'in'
