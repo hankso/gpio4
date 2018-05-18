@@ -6,8 +6,11 @@ Created on Tue May 15 01:17:55 2018
 @author: hank
 @page:   https://github.com/hankso
 """
-from gpio4 import GPIO
 import threading
+import time
+from gpio4.constants import FOREVER_ms, LOW, HIGH, MSBFIRST, LSBFIRST
+from gpio4 import GPIO
+
 
 '''
 Digital I/O
@@ -15,19 +18,22 @@ Digital I/O
 def pinMode(pin, state):
     GPIO.setup(pin, state)
 
+
 def digitalWrite(pin, value):
     try:
         GPIO.output(pin, value)
     except NameError:
         raise NameError(('Pin {} is not setup yet, please run'
-                         '`pinMode({}, state)` first!')).format(pin, pin))
+                         '`pinMode({}, state)` first!').format(pin, pin))
+
 
 def digitalRead(pin):
     try:
         return GPIO.input(pin)
     except NameError:
         raise NameError(('Pin {} is not setup yet, please run'
-                         '`pinMode({}, state)` first!')).format(pin, pin))
+                         '`pinMode({}, state)` first!').format(pin, pin))
+
 
 '''
 Advanced I/O
@@ -38,8 +44,10 @@ def tone(pin, frequency, duration=None):
     if duration is not None and duration > 0:
         threading.Timer(duration, lambda *args, **kwargs: p.stop()).start()
 
+
 def noTone(pin):
     GPIO.PWM(pin).stop()
+
 
 def pulseIn(pin, value, timeout=FOREVER_ms):
     # wait for any previous pulse end
@@ -58,6 +66,7 @@ def pulseIn(pin, value, timeout=FOREVER_ms):
             return 0
     return micros() - start
 
+
 def shiftIn(dataPin, clockPin, bitOrder):
     digitalWrite(clockPin, LOW)
     value = 0
@@ -74,6 +83,7 @@ def shiftIn(dataPin, clockPin, bitOrder):
     else:
         raise ValueError('Invalid bitOrder: {}'.format(bitOrder))
     return value
+
 
 def shiftOut(dataPin, clockPin, bitOrder, value):
     if bitOrder == MSBFIRST:
@@ -96,14 +106,18 @@ Time
 def delay(timeout):
     time.sleep(timeout/1000.0)
 
+
 def delayMicroseconds(timeout):
     time.sleep(timeout/1000000.0)
+
 
 def micros():
     return time.time() * 1000
 
+
 def millis():
     return time.time() * 1000000
+
 
 '''
 Math
@@ -111,8 +125,10 @@ Math
 def constrain(x, a, b):
     return max(min(x, b), a)
 
+
 def map(x, low, high, t_low, t_high):
     return float(x-low) / (high-low) * (t_high-t_low) + t_low
+
 
 '''
 Bits and Bytes
@@ -120,11 +136,14 @@ Bits and Bytes
 def bitClear(x, n):
     return bitWrite(x, n, 0)
 
+
 def bitSet(x, n):
     return bitWrite(x, n, 1)
 
+
 def bitRead(x, n):
     return (x >> n) & 0x01
+
 
 def bitWrite(x, n, b):
     if b:
@@ -133,11 +152,14 @@ def bitWrite(x, n, b):
         x &= ~(1 << n)
     return x
 
+
 def highByte(x):
     return (x >> 8) & 0xff
 
+
 def lowByte(x):
     return x & 0xff
+
 
 '''
 External Interrupts
@@ -145,11 +167,14 @@ External Interrupts
 def attachInterrupt(pin, ISR, mode):
     GPIO.add_event_detect(pin, edge=mode, callback=[ISR])
 
+
 def detachInterrupt(pin):
     GPIO.remove_event_detect(pin)
 
+
 def interrupts():
     GPIO.enable_interrupts()
+
 
 def noInterrupts():
     GPIO.disable_interrupts()

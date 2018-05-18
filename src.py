@@ -10,6 +10,7 @@ from gpio4.constants import *
 
 class SysfsGPIO(object):
     attributes = ('value', 'direction', 'active_low', 'edge')
+
     def __init__(self, pin):
         self.pin = pin
         self.path = '/sys/class/gpio/gpio{:d}'.format(pin)
@@ -47,8 +48,8 @@ class SysfsGPIO(object):
                     f.write(str(self.pin))
             for attr in self.attributes:
                 self._file[attr] = open(
-                        os.path.join(self.path, attr),
-                        'wb+', buffering=0)
+                    os.path.join(self.path, attr),
+                    'wb+', buffering=0)
         # close attr files
         # gpio will be unexported if it exists
         else:
@@ -91,17 +92,17 @@ class SysfsGPIO(object):
 
 class _GPIO(object):
     def __init__(self):
-        self.IN      = INPUT
-        self.OUT     = OUTPUT
-        self.PULLUP  = INPUT_PULLUP
-        self.PULLDN  = INPUT_PULLDN
-        self.HIGH    = HIGH
-        self.LOW     = LOW
-        self.RISING  = RISING
+        self.IN = INPUT
+        self.OUT = OUTPUT
+        self.PULLUP = INPUT_PULLUP
+        self.PULLDN = INPUT_PULLDN
+        self.HIGH = HIGH
+        self.LOW = LOW
+        self.RISING = RISING
         self.FALLING = FALLING
-        self.BOTH    = CHANGE
-        self.BOARD   = BOARD_SUNXI
-        self.BCM     = BCM
+        self.BOTH = CHANGE
+        self.BOARD = BOARD_SUNXI
+        self.BCM = BCM
         self.VERSION = 1.0
 
         self._pin_dict = {}
@@ -120,13 +121,13 @@ class _GPIO(object):
         except:
             raise KeyError(('Invalid pin({}) or unsupported mode!\n'
                             'Reset mode and check pin num.').format(pin))
-        if must_in_dict and ( p not in self._pin_dict ):
+        if must_in_dict and (p not in self._pin_dict):
             raise NameError(('Pin {} is not setup yet, please run'
                              '`GPIO.setup({}, state)` first!'
                              '').format(pin, pin))
         return p
 
-    def _listify(self, *args, padlen=None):
+    def _listify(self, *args, **kwargs):
         # convert all args to list and pad them to a certain length
         for arg in args:
             if not isinstance(arg, list):
@@ -134,9 +135,10 @@ class _GPIO(object):
                     arg = list(arg)
                 else:
                     arg = [arg]
-            if padlen:
+            if 'padlen' in kwargs:
+                padlen = kwargs['padlen']
                 if len(arg) < padlen:
-                    arg += [arg[-1]] * ( padlen-len(arg) )
+                    arg += [arg[-1]] * (padlen - len(arg))
                 elif len(arg) > padlen:
                     arg = arg[:padlen]
         return args
@@ -146,7 +148,7 @@ class _GPIO(object):
         pins = [self._get_pin_num(p) for p in self._listify(pin)]
         # pad state_list and initial_list in case someone
         # want to setup more than one pin at one time
-        states, initials = self._listify(state, initial, padlen = len(pin))
+        states, initials = self._listify(state, initial, padlen=len(pin))
 
         # register all pins and init them
         for p, s, i in zip(pins, states, initials):
@@ -166,14 +168,15 @@ class _GPIO(object):
     def input(self, pin):
         # single channel value
         if type(pin) not in [list, tuple]:
-            return self._pin_dict[self._get_pin_num(pin, must_in_dict=True)].value
+            return self._pin_dict[
+                self._get_pin_num(pin, must_in_dict=True)].value
         # multichannel values
-        pins = [self._get_pin_num(pin, must_in_dict=True) \
+        pins = [self._get_pin_num(pin, must_in_dict=True)
                 for p in self._listify(pin)]
         return [self._pin_dict[p].value for p in pins]
 
     def output(self, pin, value):
-        pins = [self._get_pin_num(p, must_in_dict=True) \
+        pins = [self._get_pin_num(p, must_in_dict=True)
                 for p in self._listify(pin)]
         values = self._listify(value, padlen=len(pins))
         for p, v in zip(pins, values):
@@ -182,8 +185,8 @@ class _GPIO(object):
             self._pin_dict[p].value = int(v)
 
     def cleanup(self, pin=None):
-        if pin == None:
-            pins = list(self._pin_dict.keys()) # py2&py3 compatiable
+        if pin is None:
+            pins = list(self._pin_dict.keys())  # py2&py3 compatiable
         else:
             pins = [self._get_pin_num(p) for p in self._listify(pin)]
         for p in pins:
@@ -224,7 +227,7 @@ class _GPIO(object):
                 for c in self._irq_dict[p]['callbacks']:
                     c(pin)
 
-    def add_event_detect(self, pin, edge, callback=None, bouncetime=None):
+    def add_event_detect(self, pin, edge, func=None, bouncetime=None):
         p = self._get_pin_num(pin, must_in_dict=True)
         if p in self._irq_dict:
             raise NameError(('Pin {} is already been attached to a soft '
@@ -250,8 +253,8 @@ class _GPIO(object):
         t.setDeamon(True)
         t.start()
         self._irq_dict[p] = {
-            'bouncetime': bouncetime if bouncetime != None else 0,
-            'callbacks': self._listify(callback) if callback != None else [],
+            'bouncetime': bouncetime if bouncetime is not None else 0,
+            'callbacks': self._listify(func) if func is not None else [],
             'edge': edge, 'l1': l1, 'l2': l2,
             'flag_stop': flag_stop, 'flag_triggered': flag_triggered
         }
@@ -285,7 +288,7 @@ class _GPIO(object):
         while not self._irq_dict[p]['flag_triggered'].isSet():
             if (self._time_ms() - start) > timeout:
                 return False
-            time.sleep(1.0/10) # sensibility: refresh 10 times per second
+            time.sleep(1.0/10)  # sensibility: refresh 10 times per second
         self._irq_dict[p]['flag_triggered'].clear()
         return True
 
