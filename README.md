@@ -45,4 +45,5 @@ or most basic but fastest sysfs class?
 >>> pin.direction = 'out' # same like pinMode()
 >>> print(pin.value) # current level
 >>> pin.value = 1 # same like digitalWrite()
+>>> pin.export = False # clear this pin from sysfs
 ```

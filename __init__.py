@@ -12,7 +12,7 @@ GPIO = _GPIO()
 
 from .src import SysfsGPIO
 
-import arduino
-import constants
+from . import arduino
+from . import constants
 
 __all__ = [arduino, constants, GPIO, SysfsGPIO]
