@@ -37,3 +37,8 @@ BOARD_SUNXI = _sunxi()
 BOARD_NANO_PI = {}
 BOARD_ORANGE_PI_PC = {}
 BCM = {}
+
+__all__ = ['RISING', 'FALLING', 'CHANGE', 'HIGH', 'LOW',
+           'OUTPUT', 'INPUT', 'INPUT_PULLUP', 'INPUT_PULLDN',
+           'MSBFIRST', 'LSBFIRST', 'true', 'false', 'FOREVER', 'FOREVER_ms',
+           'BOARD_SUNXI', 'BOARD_NANO_PI', 'BOARD_ORANGE_PI_PC', 'BCM']

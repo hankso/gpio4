@@ -8,7 +8,7 @@ Created on Tue May 15 01:17:55 2018
 """
 import threading
 import time
-from gpio4.constants import FOREVER_ms, LOW, HIGH, MSBFIRST, LSBFIRST
+from gpio4.constants import *
 from gpio4 import GPIO
 
 
@@ -178,3 +178,13 @@ def interrupts():
 
 def noInterrupts():
     GPIO.disable_interrupts()
+
+
+
+__all__ = ['HIGH', 'LOW', 'OUTPUT', 'INPUT', 'INPUT_PULLUP', 'INPUT_PULLDN',
+           'MSBFIRST', 'LSBFIRST', 'true', 'false',
+           'pinMode', 'digitalWrite', 'digitalRead', 'tone', 'noTone',
+           'pulseIn', 'shiftIn', 'shiftOut', 'constrain', 'map',
+           'delay', 'delayMicroseconds', 'micros', 'millis',
+           'bitClear', 'bitSet', 'bitRead', 'bitWrite', 'highByte', 'lowByte',
+           'attachInterrupt', 'detachInterrupt', 'interrupts', 'noInterrupts']
