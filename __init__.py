@@ -132,18 +132,20 @@ class _GPIO(object):
 
     def _listify(self, *args, **kwargs):
         # convert all args to list and pad them to a certain length
-        for arg in args:
+        for i, arg in enumerate(args):
             if not isinstance(arg, list):
                 if isinstance(arg, tuple):
-                    arg = list(arg)
+                    args[i] = list(arg)
                 else:
-                    arg = [arg]
+                    args[i] = [arg]
             if 'padlen' in kwargs:
                 padlen = kwargs['padlen']
-                if len(arg) < padlen:
-                    arg += [arg[-1]] * (padlen - len(arg))
+                if len(args[i]) < padlen:
+                    args[i] += [args[i][-1]] * (padlen - len(args[i]))
                 elif len(arg) > padlen:
-                    arg = arg[:padlen]
+                    args[i] = args[i][:padlen]
+        if len(args) == 1:
+            return args[0]
         return args
 
     def setup(self, pin, state, initial=None):
@@ -339,7 +341,7 @@ class _GPIO(object):
         return_list = []
         for p, f in zip(pins, frequencys):
             if p not in self._pwm_dict:
-                self.setup(p, self.OUT)
+                self.setup(self._listify(pin)[pins.index(p)], self.OUT)
                 if f is None:
                     raise NameError(('PWM on pin {} is not initialized yet, '
                                      'please provide pin num and freq'
