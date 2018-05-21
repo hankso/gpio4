@@ -143,7 +143,7 @@ class _GPIO(object):
                 padlen = kwargs['padlen']
                 if len(args[i]) < padlen:
                     args[i] += [args[i][-1]] * (padlen - len(args[i]))
-                elif len(arg) > padlen:
+                elif len(args[i]) > padlen:
                     args[i] = args[i][:padlen]
         if len(args) == 1:
             return args[0]
