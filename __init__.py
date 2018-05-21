@@ -132,6 +132,7 @@ class _GPIO(object):
 
     def _listify(self, *args, **kwargs):
         # convert all args to list and pad them to a certain length
+        args = list(args) # tuple to list
         for i, arg in enumerate(args):
             if not isinstance(arg, list):
                 if isinstance(arg, tuple):
