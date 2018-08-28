@@ -1,12 +1,34 @@
 # gpio4
 Python module to control gpio on Linux.
 
-Improved gpio module based on sysfs and RPi.GPIO and gpio3 features
+Improved gpio module based on Sysfs, features same as RPi.GPIO and gpio3.
 
-Support `RaspberryPi/OrangePi/BananaPi...`
+Support `RaspberryPi / OrangePi / BananaPi...`
+
+
+# Attention
+Don't run this on your PC because gpios of computer CPU are usually protected.
+
+
+# Installation
+Install from PyPI is suggested.
+
+```bash
+pip install gpio4
+```
+
+Or install from source.
+
+```bash
+git clone git@github.com:hankso/gpio4.git
+cd gpio4
+python setup.py build && sudo python setup.py install
+```
+
 
 # Usage
 Want something like RPi.GPIO?
+
 ```python
 >>> import gpio4.GPIO as GPIO
 >>> GPIO.setmode(GPIO.BCM)
@@ -24,6 +46,7 @@ Want something like RPi.GPIO?
 ```
 
 or call functions as you are using Arduino?
+
 ```python
 >>> from gpio4.arduino import *
 >>> pinMode(13, OUTPUT)
@@ -34,7 +57,8 @@ or call functions as you are using Arduino?
 170
 ```
 
-or most basic but fastest sysfs class?
+Try the most basic but fastest Sysfs class?
+
 ```python
 >>> from gpio4 import SysfsGPIO
 >>> from gpio4.constants import BOARD_ORANGE_PI_PC
@@ -47,3 +71,6 @@ or most basic but fastest sysfs class?
 >>> pin.value = 1 # same like digitalWrite()
 >>> pin.export = False # clear this pin from sysfs
 ```
+
+If you have any question on usage, it is strongly recommended to directly read source codes, which are well commented.
+Also check [kernel doc of sysfs](https://www.kernel.org/doc/Documentation/gpio/sysfs.txt), and [this article](https://www.acmesystems.it/gpio_sysfs).
