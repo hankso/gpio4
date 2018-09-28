@@ -1,13 +1,13 @@
 # gpio4
-Python module to control gpio on Linux.
+Control gpio in python on Linux.
 
-Improved gpio module based on Sysfs, features same as RPi.GPIO and gpio3.
+Improved version based on Sysfs, features same as RPi.GPIO and gpio3.
 
 Support `RaspberryPi / OrangePi / BananaPi...`
 
 
 # Attention
-Don't run this on your PC because gpios of computer CPU are usually protected.
+Don't run this on your PC because gpios of computer are usually protected.
 
 
 # Installation
@@ -57,7 +57,7 @@ or call functions as you are using Arduino?
 170
 ```
 
-Try the most basic but fastest Sysfs class?
+Try the most basic but fastest Sysfs class
 
 ```python
 >>> from gpio4 import SysfsGPIO
@@ -72,5 +72,4 @@ Try the most basic but fastest Sysfs class?
 >>> pin.export = False # clear this pin from sysfs
 ```
 
-If you have any question on usage, it is strongly recommended to directly read source codes, which are well commented.
-Also check [kernel doc of sysfs](https://www.kernel.org/doc/Documentation/gpio/sysfs.txt), and [this article](https://www.acmesystems.it/gpio_sysfs).
+If you have any question on usage, it is strongly recommended to directly read well commented source codes. Also check [kernel doc of sysfs](https://www.kernel.org/doc/Documentation/gpio/sysfs.txt), and [this article](https://www.acmesystems.it/gpio_sysfs).
