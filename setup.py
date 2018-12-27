@@ -2,17 +2,15 @@
 
 from setuptools import setup, find_packages
 
-with open('README.md', 'r') as f:
-    long_des = f.read()
-
 setup(
     name="gpio4",
-    version="0.0.2",
+    version="0.0.4",
     author="hankso",
-    author_email="3080863354@qq.com",
+    author_email="hankso1106@gmail.com",
     description=("Improved gpio module based on Sysfs, "
                  "features same as RPi.GPIO and gpio3"),
-    long_description=long_des,
+    long_description=open('README.md').read(),
+    long_description_content_type='text/markdown',
     url="https://github.com/hankso/gpio4",
     packages=find_packages(),
     classifiers=[
