@@ -1,7 +1,7 @@
 # gpio4
 Control gpio in python on Linux.
 
-Improved version based on Sysfs, features same as RPi.GPIO and gpio3.
+Improved version based on Sysfs, features same as RPi.GPIO and [gpio3](https://pypi.org/project/gpio3)
 
 Support `RaspberryPi / OrangePi / BananaPi...`
 
