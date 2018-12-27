@@ -119,6 +119,15 @@ class SysfsGPIO(object):
         self._write_lock = threading.Lock()
         self._read_lock = threading.Lock()
 
+    def __repr__(self):
+        if self.export:
+            return '<gpio{} {} edge:{} mode:{} at {}>'.format(
+                self.pin, 'HIGH' if self.value else 'LOW', self.edge.title(),
+                self.direction.upper(), hex(self.__hash__()))
+        else:
+            return '<gpio{} unexported at {}>'.format(
+                self.pin, hex(self.__hash__()))
+
     @property
     def export(self):
         return os.path.exists(self.path)
@@ -326,6 +335,14 @@ class GPIO(object):
     def close_interrupts(self):
         self._flag_interrupts_stop.set()
 
+    def _recheck_bounce(self, p, bouncetime):
+        time.sleep(bouncetime / 1000.0)
+        edge = self._pin_dict[p].edge
+        value = self._pin_dict[p].value
+        rise = (edge == self.RISING and value == self.HIGH)
+        fall = (edge == self.FALLING and value == self.LOW)
+        return (rise or fall)
+
     def _handle_interrupts(self):
         while not self._flag_interrupts_stop.isSet():
             self._flag_interrupts_pause.wait()
@@ -335,15 +352,10 @@ class GPIO(object):
             for fd, event in rst:
                 for p in self._irq_dict:
                     if self._irq_dict[p]['fd'] == fd:
-                        bouncetime = self._irq_dict[p]['bouncetime']
+                        bt = self._irq_dict[p]['bouncetime']
                         break
-                if bouncetime:
-                    time.sleep(bouncetime / 1000.0)
-                    edge = self._pin_dict[p].edge
-                    value = self._pin_dict[p].value
-                    if ((edge == self.RISING and value != self.HIGH) or
-                        (edge == self.FALLING and value != self.LOW)):
-                        continue
+                if bt and not self._recheck_bounce(p, bt):
+                    continue
                 self._irq_dict[p]['interrupted'].set()
                 for c in self._irq_dict[p]['callbacks']:
                     try:
@@ -366,8 +378,8 @@ class GPIO(object):
         fd = self._pin_dict[p].fileno('value')
         self._irq_dict[p] = {
             'fd': fd, 'interrupted': threading.Event(), 'pin_name': pin,
-            'bouncetime': bouncetime if bouncetime is not None else 0,
-            'callbacks': self._listify(func) if func is not None else []
+            'bouncetime': bouncetime or 0,
+            'callbacks': self._listify(func) or []
         }
         self._epoll.register(fd, select.EPOLLPRI | select.EPOLLET)
 
@@ -402,7 +414,7 @@ class GPIO(object):
         self._irq_dict[p]['interrupted'].clear()
         return pin
 
-    def setmode(self, m):
+    def setmode(self, mode):
         self._mode = mode
 
     def getmode(self):
@@ -422,7 +434,7 @@ class GPIO(object):
                 initialize with 1Hz(default) and return PWM instance
         '''
         pins = [self._get_pin_num(p) for p in self._listify(pin)]
-        frequencys = self._listify(frequency, padlen = len(pins))
+        frequencys = self._listify(frequency, padlen=len(pins))
         return_list = []
         for p, f in zip(pins, frequencys):
             if p not in self._pwm_dict:
