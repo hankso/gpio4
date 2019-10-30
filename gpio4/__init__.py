@@ -155,17 +155,16 @@ class SysfsGPIO(object):
         if value:
             if not self.export:
                 with open('/sys/class/gpio/export', 'w') as f:
-                    f.write(str(self.pin).encode('utf-8'))
+                    f.write(str(self.pin))
             for attr in self.attributes:
-                self._file[attr] = open(
-                    os.path.join(self.path, attr),
-                    'wb+', buffering=0)
+                fn = os.path.join(self.path, attr)
+                self._file[attr] = open(fn, 'w+', buffering=0)
         # close attr files
         # gpio will be unexported if it exists
         else:
             if self.export:
                 with open('/sys/class/gpio/unexport', 'w') as f:
-                    f.write(str(self.pin).encode('utf-8'))
+                    f.write(str(self.pin))
             for h in list(self._file.values()):
                 h.close()
             self._file.clear()
@@ -198,7 +197,7 @@ class SysfsGPIO(object):
     def _write(self, attr, data):
         with self._write_lock:
             self._file[attr].seek(0)
-            self._file[attr].write(str(data).encode('utf-8'))
+            self._file[attr].write(str(data))
 
 
 class GPIO(object):
