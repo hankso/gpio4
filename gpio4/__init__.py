@@ -158,7 +158,7 @@ class SysfsGPIO(object):
                     f.write(str(self.pin))
             for attr in self.attributes:
                 fn = os.path.join(self.path, attr)
-                self._file[attr] = open(fn, 'w+', buffering=0)
+                self._file[attr] = open(fn, 'wb+', buffering=0)
         # close attr files
         # gpio will be unexported if it exists
         else:
@@ -197,7 +197,7 @@ class SysfsGPIO(object):
     def _write(self, attr, data):
         with self._write_lock:
             self._file[attr].seek(0)
-            self._file[attr].write(str(data))
+            self._file[attr].write(str(data).encode('utf-8'))
 
 
 class GPIO(object):
