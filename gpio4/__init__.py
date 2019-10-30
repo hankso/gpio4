@@ -113,7 +113,7 @@ class SysfsGPIO(object):
     attributes = ('value', 'direction', 'active_low', 'edge')
 
     def __init__(self, pin):
-        self.pin = pin
+        self.pin = int(pin)
         self.path = '/sys/class/gpio/gpio{:d}'.format(pin)
         self._file = {}
         self._write_lock = threading.Lock()
@@ -155,7 +155,7 @@ class SysfsGPIO(object):
         if value:
             if not self.export:
                 with open('/sys/class/gpio/export', 'w') as f:
-                    f.write(str(self.pin))
+                    f.write(str(self.pin).encode('utf-8'))
             for attr in self.attributes:
                 self._file[attr] = open(
                     os.path.join(self.path, attr),
@@ -165,7 +165,7 @@ class SysfsGPIO(object):
         else:
             if self.export:
                 with open('/sys/class/gpio/unexport', 'w') as f:
-                    f.write(str(self.pin))
+                    f.write(str(self.pin).encode('utf-8'))
             for h in list(self._file.values()):
                 h.close()
             self._file.clear()
@@ -198,7 +198,7 @@ class SysfsGPIO(object):
     def _write(self, attr, data):
         with self._write_lock:
             self._file[attr].seek(0)
-            self._file[attr].write(str(data))
+            self._file[attr].write(str(data).encode('utf-8'))
 
 
 class GPIO(object):
