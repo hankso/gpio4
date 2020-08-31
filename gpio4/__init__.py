@@ -223,6 +223,8 @@ class GPIO(object):
     _pwm_dict = {}
     _irq_dict = {}
     _flag_interrupts = threading.Event()
+    _flag_interrupts_pause = threading.Event()
+    _flag_interrupts_stop = threading.Event()
     _epoll = select.epoll()
 
     def __init__(self):
@@ -322,14 +324,15 @@ class GPIO(object):
 
     def enable_interrupts(self):
         if hasattr(self, '_thread_irq'):
-            self._flag_interrupts_pause.clear()
+            self._flag_interrupts_pause.set()
             return
         self._thread_irq = threading.Thread(target=self._handle_interrupts)
         self._thread_irq.setDaemon(True)
         self._thread_irq.start()
+        self._flag_interrupts_pause.set()
 
     def disable_interrupts(self):
-        self._flag_interrupts_pause.set()
+        self._flag_interrupts_pause.clear()
 
     def close_interrupts(self):
         self._flag_interrupts_stop.set()
