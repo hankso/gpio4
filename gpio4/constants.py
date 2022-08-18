@@ -20,6 +20,7 @@ class _sunxi():
 RISING       = 'rising'
 FALLING      = 'falling'
 CHANGE       = 'change'
+BOTH         = 'both'
 HIGH         = 1
 LOW          = 0
 INPUT        = 'in'
@@ -37,6 +38,7 @@ BOARD_SUNXI = _sunxi()
 BOARD_NANO_PI = {}
 BOARD_ORANGE_PI_PC = {}
 BCM = {}
+BOARD_RPI = {ix: ix for ix in range(28)}
 
 __all__ = ['RISING', 'FALLING', 'CHANGE', 'HIGH', 'LOW',
            'OUTPUT', 'INPUT', 'INPUT_PULLUP', 'INPUT_PULLDN',

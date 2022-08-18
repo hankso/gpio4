@@ -217,16 +217,19 @@ class GPIO(object):
     BOTH = constants.CHANGE
     BOARD = constants.BOARD_SUNXI
     BCM = constants.BCM
+    BOARD_RPI = constants.BOARD_RPI
     VERSION = 1.0
 
     _pin_dict = {}
     _pwm_dict = {}
     _irq_dict = {}
-    _flag_interrupts = threading.Event()
+    _flag_interrupts_stop = threading.Event()
+    _flag_interrupts_pause = threading.Event()
     _epoll = select.epoll()
 
     def __init__(self):
         self._mode = self.BOARD  # default mode
+        self._thread_irq = None
 
     def _time_ms(self):
         return time.time() * 1000
@@ -321,15 +324,15 @@ class GPIO(object):
                 irq['flag_triggered'].clear()
 
     def enable_interrupts(self):
-        if hasattr(self, '_thread_irq'):
-            self._flag_interrupts_pause.clear()
+        self._flag_interrupts_pause.set()
+        if self._thread_irq:
             return
         self._thread_irq = threading.Thread(target=self._handle_interrupts)
-        self._thread_irq.setDeamon(True)
+        self._thread_irq.setDaemon(True)
         self._thread_irq.start()
 
     def disable_interrupts(self):
-        self._flag_interrupts_pause.set()
+        self._flag_interrupts_pause.clear()
 
     def close_interrupts(self):
         self._flag_interrupts_stop.set()
@@ -386,7 +389,7 @@ class GPIO(object):
         p = self._get_pin_num(pin, must_in_dict=True)
         if p in self._irq_dict:
             self._epoll.unregister(self._irq_dict[p]['fd'])
-            self._irq_dict.remove(p)
+            self._irq_dict.pop(p)
 
     def add_event_callback(self, pin, callback):
         p = self._get_pin_num(pin, must_in_dict=True)
@@ -414,6 +417,8 @@ class GPIO(object):
         return pin
 
     def setmode(self, mode):
+        self.BOTH = constants.BOTH if mode == self.BOARD_RPI \
+            else constants.CHANGE
         self._mode = mode
 
     def getmode(self):
@@ -499,5 +504,7 @@ class _PWM:
 
 
 from . import arduino
+
+GPIO = GPIO()
 
 __all__ = ['arduino', 'constants', 'GPIO', 'SysfsGPIO']
